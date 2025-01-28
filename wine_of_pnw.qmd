@@ -2,10 +2,6 @@
 
 This is a technical blog post of **both** an HTML file *and* [.qmd file](src/wine_of_pnw.qmd) hosted on GitHub pages.
 
-# Setup
-
-2.  Modify if necessary the below code so that you can successfully load `wine.rds` then delete this line.
-3.  In the space provided after the R chunk, explain what thecode is doing (line by line) then delete this line.
 4.  Get your [GitHub Pages](https://docs.github.com/en/pages/quickstart) ready.
 
 **Step Up Code:**
