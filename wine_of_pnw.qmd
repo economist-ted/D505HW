@@ -1,0 +1,122 @@
+**Abstract:**
+
+This is a technical blog post of **both** an HTML file *and* [.qmd file](src/wine_of_pnw.qmd) hosted on GitHub pages.
+
+# Setup
+
+2.  Modify if necessary the below code so that you can successfully load `wine.rds` then delete this line.
+3.  In the space provided after the R chunk, explain what thecode is doing (line by line) then delete this line.
+4.  Get your [GitHub Pages](https://docs.github.com/en/pages/quickstart) ready.
+
+**Step Up Code:**
+```{r}
+library(tidyverse)
+
+wine <- readRDS(gzcon(url("https://github.com/cd-public/D505/raw/master/dat/wine.rds"))) %>%
+  filter(province=="Oregon" | province=="California" | province=="New York") %>% 
+  mutate(cherry=as.integer(str_detect(description,"[Cc]herry"))) %>% 
+  mutate(lprice=log(price)) %>% 
+  select(lprice, points, cherry, province)
+```
+
+**Explanataion:**
+
+> <span style="color:red;font-weight:bold">TODO</span>: 
+
+First, we must read in our library, which is a package of tools that do not come with R "as-is." In other words, we need to read in the toolbox in order to use these tools (in this case, "tidyverse" is a toolbox full of tools). The RDS file is just a file full of our wine data. Filter, mutate, and select are tools from our tidyverse toolbox. Filter allows us to search data within particular parameters. In this case, we will only see wine data from Oregon, California, and New York.
+
+Mutate allows us to manipulate and create existing columns. In this case, we are creating the columns "cherry" and "lprice," which will allow us to indicate a 1 for whether or not "cherry" is in the description of the wine as well as apply a logarithm to our price in order to make it linear.
+
+# Multiple Regression
+
+## Linear Models
+
+First run a linear regression model with log of price as the dependent variable and 'points' and 'cherry' as features (variables).
+
+```{r}
+# TODO: hint: 
+
+m1 <- lm(data = wine, lprice ~ points + cherry)
+summary(m1)
+```
+
+**Explanataion:**
+
+> <span style="color:red;font-weight:bold">TODO</span>: 
+
+In order to predict the logged price based on the number of points a wine receives as well as whether it has "cherry" in its description, we need to set up a model. First, this line of code was missing the data reference, or where the data used was coming from. Once we did this, our text editor (software) understood where it needed to pull data from. To see the results of the model, we need to use "summary(model_name)."
+
+> <span style="color:red;font-weight:bold">TODO</span>:
+
+The RMSE (Root Mean Square Error) is a measure of how accurate our model is based on averaging squared errors (errors are data that isn't explained by our model). At 0.4688, our model is slightly better than a 50-50 chance at predicting the logged price of wine. The lower this number is, we say that the model is a "better fit."
+
+## Interaction Models
+
+Add an interaction between 'points' and 'cherry'. 
+
+```{r}
+# TODO: hint: Check the slides.
+m2 <- lm(data = wine, lprice ~ points * cherry)
+summary(m2)
+```
+
+> <span style="color:red;font-weight:bold">TODO</span>: 
+
+In order to get the interaction between points and cherry, we needed to create a second model that multiplies our predictor variables together instead of adding them for a normal linear model. If we plot this and see that the lines intersect, there could be an interaction between these two variables.
+
+> <span style="color:red;font-weight:bold">TODO</span>:
+
+The RMSE of this second model with the interaction is 0.4686, which is only slightly better than our first model. 
+
+### The Interaction Variable
+
+> <span style="color:red;font-weight:bold">TODO</span>: *interpret the coefficient on the interaction variable.* <br>[Explain as you would to a non-technical manager.](https://youtube.com/clip/UgkxY7ohjoimIef6zpPLjgQHqJcJHeZptuVm?feature=shared)
+
+The coefficient (number) of the interaction variable is 0.012663, meaning that every 1 percent increase in this interaction increases our logged price by 0.012663. 
+
+## Applications
+
+Determine which province (Oregon, California, or New York), does the 'cherry' feature in the data affect price most?
+
+```{r}
+# TODO: Create a model with an interaction between cherry and province.
+m3=lm(data=wine,lprice~province*cherry)
+summary(m3)
+```
+
+> <span style="color:red;font-weight:bold">TODO</span>: *write your line-by-line explanation of the code here, and explain your answer.*
+
+In order to see which province the "cherry" feature affects the price most, we need to create a model with an interaction between the two columns. We can see in our model summary that Oregon is affected the most by a lot, with a coefficient larger than 0.12 and New York's coefficient being slightly less than 0. Interestingly enough, California did not show up in the summary.
+
+I checked multiple times for California in the dataset and it definitely exists in there. I believe that the software decided to leave it out for somereason. However, it is important to note that our RMSE is higher than we've seen when comparing the interaction between the "cherry" feature and points, indicating that this is less accurate. However, in this case, it is the trend we care more about than the actual number.
+
+# Scenarios
+
+## On Accuracy
+
+Imagine a model to distinguish New York wines from those in California and Oregon. After a few days of work, you take some measurements and note: "I've achieved 91% accuracy on my model!" 
+
+Should you be impressed? Why or why not?
+
+```{r}
+# TODO: Use simple descriptive statistics from the data to justify your answer.
+```
+
+> <span style="color:red;font-weight:bold">TODO</span>: *describe your reasoning here*
+
+Before anyone gets impressed by this, we need to account for a few things. First, I would like to know whether our variables had any significance. I would then like to see how big our standard errors were. If our model is accurate within two standard errors in either direction, a more accurate model would be indicated with smaller standard errors. I would also argue that we should check for skewness as well for extra good measure.
+
+## On Ethics
+
+Why is understanding this vignette important to use machine learning in an ethical manner?
+
+> <span style="color:red;font-weight:bold">TODO</span>: *describe your reasoning here*
+
+It is important because we need to remember that just because an accuracy measure shows high accuracy or just because a variable is significant, there may be more to the story than we're giving ourselves credit for. After all, there is such a thing as overfitting a curve, meaning it's possible to tweak with our numbers until it says what we want it to say and that's not ethical.
+
+## Ignorance is no excuse
+Imagine you are working on a model to predict the likelihood that an individual loses their job as the result of the changing federal policy under new presidential administrations. You have a very large dataset with many hundreds of features, but you are worried that including indicators like age, income or gender might pose some ethical problems. When you discuss these concerns with your boss, she tells you to simply drop those features from the model. Does this solve the ethical issue? Why or why not?
+
+> <span style="color:red;font-weight:bold">TODO</span>:
+
+Yes and no. This would solve the ethical problem if we are looking to reduce bias on age, income, or gender. But if the dataset included other demographic data, such as race or citizenship status, then it would not eliminate all bias. That said, there is probably no way to completely remove all possibility of bias. Despite all efforts to reduce bias in this way, it is probably the case that someone will still feel disciminated against even if these indicators are removed.
