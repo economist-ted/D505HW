@@ -62,6 +62,8 @@ We now use a train/test split to evaluate the features.
 # TODO: hint: Check the slides.
 
 #Use the caret library to partition the wino dataframe into an 80/20 split.
+set.seed(505)
+
 wine_index <- createDataPartition(wino$lprice, p = 0.8, list = FALSE)
 wino_tr <- wino[wine_index, ]
 wino_te <- wino[-wine_index, ]
@@ -88,7 +90,7 @@ postResample(
 ```
 **Report the RMSE of the Test Partition**
 
-> The RMSE of this is 0.4864136, meaning that we are potentially off by that amount in the same units of lprice in our test data. The lower this number, the better. When we apply the exponent to this in order to cancel out our logarithm, we get that we would expect to be off by $1.63.
+> The RMSE of this is 0.4782213, meaning that we are potentially off by that amount in the same units of lprice in our test data. In general: The lower this number, the better. When we apply the exponent to this in order to cancel out our logarithm, we get that we would expect our predicted price to be off by $1.61.
 
 
 # Variable selection
@@ -96,7 +98,5 @@ postResample(
 We now graph the importance of your 10 features.
 
 ```{r}
-# TODO: hint: Check the slides.
-
 plot(varImp(m2, scale = TRUE))
 ```
