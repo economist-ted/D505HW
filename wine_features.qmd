@@ -9,8 +9,6 @@ This is a technical blog post of **both** an HTML file *and* [.qmd file](src/win
 
 # Setup
 
-3.  In the space provided after the R chunk, explain what thecode is doing (line by line) then delete this line.
-
 **Step Up Code:**
 
 ```{r}
@@ -89,7 +87,8 @@ postResample(
 )
 ```
 **Report the RMSE of the Test Partition**
-> The RMSE of the Test data was 0.4864, which means that this model explains about 48.64 percent of the data in the dataframe.
+
+> The RMSE of this is 0.4864136, meaning that we are potentially off by that amount in the same units of lprice in our test data. The lower this number, the better. When we apply the exponent to this in order to cancel out our logarithm, we get that we would expect to be off by $1.63.
 
 
 # Variable selection

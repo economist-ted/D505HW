@@ -107,9 +107,6 @@ pre > code.sourceCode > span > a:first-child::before { text-decoration: underlin
 <p>This is a technical blog post of <strong>both</strong> an HTML file <em>and</em> <a href="src/wine_features.qmd">.qmd file</a> hosted on GitHub pages.</p>
 <section id="setup" class="level1">
 <h1>Setup</h1>
-<ol start="3" type="1">
-<li>In the space provided after the R chunk, explain what thecode is doing (line by line) then delete this line.</li>
-</ol>
 <p><strong>Step Up Code:</strong></p>
 <div class="cell">
 <div class="sourceCode cell-code" id="cb1"><pre class="sourceCode r code-with-copy"><code class="sourceCode r"><span id="cb1-1"><a href="#cb1-1" aria-hidden="true" tabindex="-1"></a><span class="fu">library</span>(tidyverse)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
@@ -222,11 +219,11 @@ The following object is masked from 'package:purrr':
 
 No pre-processing
 Resampling: Cross-Validated (5 fold, repeated 3 times) 
-Summary of sample sizes: 57283, 57282, 57283, 57282, 57282, 57283, ... 
+Summary of sample sizes: 57284, 57281, 57282, 57282, 57283, 57283, ... 
 Resampling results:
 
   RMSE      Rsquared   MAE      
-  0.482331  0.4588964  0.3747875
+  0.482965  0.4575911  0.3745863
 
 Tuning parameter 'intercept' was held constant at a value of TRUE</code></pre>
 </div>
@@ -236,10 +233,13 @@ Tuning parameter 'intercept' was held constant at a value of TRUE</code></pre>
 <span id="cb10-4"><a href="#cb10-4" aria-hidden="true" tabindex="-1"></a>)</span></code><button title="Copy to Clipboard" class="code-copy-button"><i class="bi"></i></button></pre></div>
 <div class="cell-output cell-output-stdout">
 <pre><code>     RMSE  Rsquared       MAE 
-0.4867948 0.4585655 0.3750954 </code></pre>
+0.4841362 0.4640755 0.3757591 </code></pre>
 </div>
 </div>
-<p><strong>Report the RMSE of the Test Partition</strong> &gt; The RMSE of the Test data was 0.4864, which means that this model explains about 48.64 percent of the data in the dataframe.</p>
+<p><strong>Report the RMSE of the Test Partition</strong></p>
+<blockquote class="blockquote">
+<p>The RMSE of this is 0.4864136, meaning that we are potentially off by that amount in the same units of lprice in our test data. The lower this number, the better. When we apply the exponent to this in order to cancel out our logarithm, we get that we would expect to be off by $1.63.</p>
+</blockquote>
 </section>
 <section id="variable-selection" class="level1">
 <h1>Variable selection</h1>
