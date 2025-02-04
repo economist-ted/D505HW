@@ -1,0 +1,103 @@
+---
+title: Wine Features
+author: Ted Yanez
+---
+
+**Abstract:**
+
+This is a technical blog post of **both** an HTML file *and* [.qmd file](src/wine_features.qmd) hosted on GitHub pages.
+
+# Setup
+
+3.  In the space provided after the R chunk, explain what thecode is doing (line by line) then delete this line.
+
+**Step Up Code:**
+
+```{r}
+library(tidyverse)
+library(caret)
+library(fastDummies)
+wine <- readRDS(gzcon(url("https://github.com/cd-public/D505/raw/master/dat/wine.rds")))
+```
+
+**Explanataion:**
+
+> This code chunk is loading the tidyverse, caret, and fastDummies packages as well as loads our data, naming it 'wine.'
+
+# Feature Engineering
+
+We begin by engineering an number of features.
+
+1.  Create a total of 10 features (including points).
+2.  Remove all rows with a missing value.
+3.  Ensure only log(price) and engineering features are the only columns that remain in the `wino` dataframe.
+
+```{r}
+wino <- wine %>%
+  mutate(country = fct_lump(country, 4)) %>%
+  mutate(variety = fct_lump(variety, 4)) %>%
+  mutate(lprice = log(price)) %>%
+  select(lprice, points, country, variety, year) %>%
+  drop_na(.) #This gets rid of columns with missing values
+
+#Add dummy variables to dataframe
+renamer <- function(s) {
+  s %>% tolower() %>% str_replace("-| ", "_")
+}
+
+wino <- wino %>%
+  dummy_cols(remove_selected_columns = TRUE) %>%
+  rename_with(.fn = renamer) %>%
+  select(-ends_with("other"))
+head(wino)
+```
+
+# Caret
+
+We now use a train/test split to evaluate the features.
+
+1.  Use the Caret library to partition the wino dataframe into an 80/20 split.
+2.  Run a linear regression with bootstrap resampling.
+3.  Report RMSE on the test partition of the data.
+
+```{r}
+# TODO: hint: Check the slides.
+
+#Use the caret library to partition the wino dataframe into an 80/20 split.
+wine_index <- createDataPartition(wino$lprice, p = 0.8, list = FALSE)
+wino_tr <- wino[wine_index, ]
+wino_te <- wino[-wine_index, ]
+
+#Factor into a function
+do_training <- function(df, formula) {
+  train(formula,
+    data = df,
+    method = "lm",
+    trControl = trainControl(method = "repeatedcv", number = 5, repeats = 3)
+  )
+}
+
+#Run a linear regression with bootstrap resampling.
+m2 <- do_training(
+  wino_tr, lprice ~ .
+)
+m2
+
+postResample(
+  pred = predict(m2, wino_te),
+  obs = wino_te$lprice
+)
+```
+**Report the RMSE of the Test Partition**
+> The RMSE of the Test data was 0.4864, which means that this model explains about 48.64 percent of the data in the dataframe.
+
+
+# Variable selection
+
+We now graph the importance of your 10 features.
+
+```{r}
+# TODO: hint: Check the slides.
+
+plot(varImp(m2, scale = TRUE))
+```
