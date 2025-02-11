@@ -1,0 +1,79 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+```{r}
+library(tidytext)
+library(tidyverse)
+df <- wine
+
+df <- df %>%
+  unnest_tokens(word, description) 
+
+df <- df %>%
+  anti_join(stop_words)
+
+df <- df %>%
+  filter(word != "wine") %>%
+  filter(word != "pinot")
+
+df <- df %>%
+  count(id, word) 
+
+df <- df %>%
+  group_by(id)
+
+df <- df %>% 
+  mutate(freq = n/sum(n))
+
+df <- df %>% 
+  mutate(exists = (n>0))
+
+df <- df %>% 
+  ungroup()
+
+df <- df %>% 
+  group_by(word)
+
+df <- df %>%
+  mutate(total = sum(n))
+
+df %>% 
+  count(word) %>%
+  arrange(desc(n))
+
+df <- df %>% 
+  left_join(select(wine, id, province), by = "id")
+
+df %>% 
+  count(province, word) %>%
+  group_by(province) %>% 
+  top_n(5,n) %>% 
+  arrange(province, desc(n))
+
+
+```
+
+## The model
+
+```{r}
+library(class)
+library(naivebayes)
+
+set.seed(505)
+wine_index <- createDataPartition(df$province, p = 0.8, list = FALSE)
+train <- df[ wine_index, ]
+test <- df[-wine_index, ]
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "naive_bayes",
+             metric = "Kappa",
+             trControl = trainControl(method = "cv"))
+fit
+
+confusionMatrix(fit,factor(test$province))
+```
+

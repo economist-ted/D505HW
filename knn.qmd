@@ -1,0 +1,133 @@
+---
+title: $K$NN
+author: "Ted Yanez"
+date: "02/10/2025"
+
+format: 
+  html:  # You will quite likely want to change all but the last one, to taste
+    theme: superhero  
+    mainfont: monospace
+    highlight-style: github
+    title-block-banner: true
+    embed-resources: true
+---
+
+**Abstract:**
+
+This is a technical blog post of **both** an HTML file *and* [.qmd file](https://raw.githubusercontent.com/cd-public/D505/refs/heads/master/hws/src/knn.qmd) hosted on GitHub pages.
+
+# 0. Quarto Type-setting
+
+-   This document is rendered with Quarto, and configured to embed an images using the `embed-resources` option in the header.
+-   If you wish to use a similar header, here's is the format specification for this document:
+
+``` email
+format: 
+  html:
+    embed-resources: true
+```
+
+# 1. Setup
+
+```{r}
+library(tidyverse)
+library(caret)
+wine <- readRDS(gzcon(url("https://github.com/cd-public/D505/raw/master/dat/pinot.rds")))
+```
+
+## 2. $K$NN Concepts
+
+> A smaller K leads to potential overfitting due to high variance, but there will be less bias in your model. Conversely, a larger K leads to the opposite problem, where you potentially underfit your model due to low variance, but you've then got higher bias in the model.
+
+## 3. Feature Engineering
+
+1.  Create a version of the year column that is a *factor* (instead of numeric).
+2.  Create dummy variables that indicate the presence of "cherry", "chocolate" and "earth" in the description.
+
+-   Take care to handle upper and lower case characters.
+
+3.  Create 3 new features that represent the interaction between *time* and the cherry, chocolate and earth inidicators.
+4.  Remove the description column from the data.
+
+```{r}
+library(fastDummies)
+
+wino = wine %>%
+  mutate(
+    fyear=as.factor(year),
+    lprice=log(price)) %>%
+  mutate(note_cherry = str_detect(description,"cherry")) %>%
+  mutate(note_chocolate = str_detect(description,"chocolate")) %>%
+  mutate(note_earth = str_detect(description,"earth")) %>%
+  rename_all(funs(tolower(.))) %>% 
+  rename_all(funs(str_replace_all(., "-", "_"))) %>% 
+  rename_all(funs(str_replace_all(., " ", "_"))) %>%
+  dummy_cols(
+    select_columns = c("note_cherry","note_chocolate","note_earth"),
+    remove_most_frequent_dummy = T, 
+    remove_selected_columns = T) %>%
+  mutate(
+    tcherry=year*note_cherry_TRUE,
+    tchocolate=year*note_chocolate_TRUE,
+    tearth=year*note_earth_TRUE
+  ) %>%
+  select(-description)
+
+```
+
+## 4. Preprocessing
+
+1.  Preprocess the dataframe from the previous code block using BoxCox, centering and scaling of the numeric features
+2.  Create dummy variables for the `year` factor column
+
+```{r}
+wino %>% 
+  preProcess(method = c("BoxCox","center","scale")) %>% 
+  predict(wino) %>% 
+  head()
+
+wino = wino %>%
+  dummy_cols(
+    select_columns = c("fyear"),
+    remove_most_frequent_dummy = T, 
+    remove_selected_columns = T)
+```
+
+## 5. Running $K$NN
+
+1.  Split the dataframe into an 80/20 training and test set
+2.  Use Caret to run a $K$NN model that uses our engineered features to predict province
+
+-   use 5-fold cross validated subsampling
+-   allow Caret to try 15 different values for $K$
+
+3.  Display the confusion matrix on the test data
+
+```{r}
+library(class)
+
+set.seed(505)
+wine_index <- createDataPartition(wino$province, p = 0.8, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+fit <- knn(
+  train = select(train,-province), 
+  test = select(test,-province), 
+  k=15, 
+  cl = train$province)
+
+confusionMatrix(fit,factor(test$province))
+```
+
+## 6. Kappa
+
+How do we determine whether a Kappa value represents a good, bad or some other outcome?
+
+> There is a scale, but for our purposes here, we know that anything below 0.2 is not great and anything above 0.8 is near perfect. Anything inbetween these figures is either okay (on the lower end) or good to great (on the higher end).
+
+## 7. Improvement
+
+How can we interpret the confusion matrix, and how can we improve in our predictions?
+
+> We can see that California's wines are predicted most accurately, but Oregon is most often mistakenly predicted to be California. We could always adjust the values of K, but this may not be as helpful as removing less helpful features. When I attempted to lower the value of K from 15 to 5, our Kappa value increased, indicating that a lower number may help imrpove this model.
