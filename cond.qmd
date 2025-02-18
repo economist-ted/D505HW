@@ -1,0 +1,171 @@
+---
+title: "Conditional Probability"
+author: "Ted Yanez"
+date: "02/17/2025"
+
+format: 
+  html:  # You will quite likely want to change all but the last one, to taste
+    theme: superhero  
+    mainfont: monospace
+    highlight-style: github
+    title-block-banner: true
+    embed-resources: true
+---
+
+**Abstract:**
+
+This is a technical blog post of **both** an HTML file *and* [.qmd file](https://raw.githubusercontent.com/cd-public/D505/refs/heads/master/hws/src/cond.qmd) hosted on GitHub pages.
+
+# 0. Quarto Type-setting
+
+- This document is rendered with Quarto, and configured to embed an images using the `embed-resources` option in the header.
+- If you wish to use a similar header, here's is the format specification for this document:
+
+```email
+format: 
+  html:
+    embed-resources: true
+```
+
+# 1. Setup
+
+**Step Up Code:**
+
+```{r}
+sh <- suppressPackageStartupMessages
+sh(library(tidyverse))
+sh(library(caret))
+sh(library(naivebayes))
+sh(library(tidytext))
+wine <- readRDS(gzcon(url("https://github.com/cd-public/D505/raw/master/dat/pinot.rds")))
+```
+
+# 2. Conditional Probability
+
+Calculate the probability that a Pinot comes from Burgundy given it has the word 'fruit' in the description.
+
+$$
+P({\rm Burgundy}~|~{\rm Fruit})
+$$
+
+```{r}
+wino <- wine %>% 
+  mutate(year_f = as.factor(year)) %>% 
+  mutate(fruit = str_detect(description,"fruit")) %>%
+  select(-description, year)
+
+burgundy_fruit <- nrow(filter(wino, province=="Burgundy" & fruit))/nrow(wino)
+
+fruit <- nrow(filter(wino, fruit))/nrow(wino)
+
+burgundy_fruit/fruit
+```
+
+# 3. Naive Bayes Algorithm
+
+We train a naive bayes algorithm to classify a wine's province using:
+1. An 80-20 train-test split.
+2. Three features engineered from the description
+3. 5-fold cross validation.
+
+We report Kappa after using the model to predict provinces in the holdout sample.
+
+```{r}
+library(class)
+library(fastDummies)
+
+wino = wine %>%
+  mutate(
+    fyear=as.factor(year),
+    lprice=log(price)) %>%
+  mutate(note_cherry = str_detect(description,"cherry")) %>%
+  mutate(note_chocolate = str_detect(description,"chocolate")) %>%
+  mutate(note_earth = str_detect(description,"earth")) %>%
+  rename_all(funs(tolower(.))) %>% 
+  rename_all(funs(str_replace_all(., "-", "_"))) %>% 
+  rename_all(funs(str_replace_all(., " ", "_"))) %>%
+  dummy_cols(
+    select_columns = c("note_cherry","note_chocolate","note_earth"),
+    remove_most_frequent_dummy = T, 
+    remove_selected_columns = T) %>%
+  mutate(
+    tcherry=year*note_cherry_TRUE,
+    tchocolate=year*note_chocolate_TRUE,
+    tearth=year*note_earth_TRUE
+  ) %>%
+  select(-description)
+
+
+set.seed(505)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+
+fit <- train(province ~ .,
+             data = train, 
+             method = "naive_bayes",
+             metric = "Kappa",
+             trControl = trainControl(method = "cv"))
+
+confusionMatrix(predict(fit, test),factor(test$province))
+```
+
+
+# 4. Frequency Differences
+
+We find the three words that most distinguish New York Pinots from all other Pinots.
+
+```{r}
+data(stop_words)
+head(stop_words, 25)$word
+
+df <- wine
+
+df <- df %>%
+  unnest_tokens(word, description)
+
+df <- df %>%
+  anti_join(stop_words)
+
+df <- df %>%
+  filter(word != "wine") %>%
+  filter(word != "pinot") %>%
+  filter(province == "New_York")
+
+df <- df %>%
+  count(id, word) 
+
+df <- df %>%
+  group_by(id)
+
+df <- df %>% 
+  mutate(freq = n/sum(n))
+
+df <- df %>% 
+  mutate(exists = (n>0))
+
+df <- df %>% 
+  ungroup()
+
+df <- df %>% 
+  group_by(word)
+
+df <- df %>%
+  mutate(total = sum(n))
+
+df %>% 
+  count(word) %>%
+  arrange(desc(n))
+
+df <- df %>% 
+  left_join(select(wine, id, province), by = "id")
+
+df %>% 
+  count(province, word) %>%
+  group_by(province) %>% 
+  top_n(5,n) %>% 
+  arrange(province, desc(n)) %>%
+  head()
+
+```
+

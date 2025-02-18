@@ -47,7 +47,8 @@ df %>%
 df <- df %>% 
   left_join(select(wine, id, province), by = "id")
 
-df %>% 
+df %>%
+  filter(province %in% c("Casablanca_Valley","New_York","Marlborough")) %>%
   count(province, word) %>%
   group_by(province) %>% 
   top_n(5,n) %>% 
