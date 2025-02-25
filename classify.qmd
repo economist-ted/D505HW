@@ -36,7 +36,15 @@ sh <- suppressPackageStartupMessages
 library(tidyverse)
 library(caret)
 library(naivebayes)
-wine <- readRDS(gzcon(url("https://github.com/cd-public/D505/raw/master/dat/pinot.rds")))
+library(tidytext)
+sh(library(SnowballC)) 
+sh(library(pROC))      
+sh(library(glmnet))
+sh(library(thematic))
+theme_set(theme_dark())
+data(stop_words)
+wine <- readRDS(gzcon(url("https://cd-public.github.io/D505/dat/pinot.rds")))
+names(wine)[names(wine) == 'id'] = 'id'
 ```
 
 # 2. Logistic Concepts
@@ -148,7 +156,10 @@ get_matrix <- function(fit, df) {
   confusionMatrix(pred,factor(df$province))
 }
 get_matrix(fit,test)
+```
 
+
+```{r}
 winor <- wine_words(wine, 1000, T) %>% 
            mutate(Marlborough = as.factor(province == "Marlborough")) %>%
            select(-province)
