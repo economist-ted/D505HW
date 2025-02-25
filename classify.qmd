@@ -1,0 +1,187 @@
+---
+title: "Classification"
+author: "Ted Yanez"
+date: "02/24/2025"
+
+format: 
+  html:  # You will quite likely want to change all but the last one, to taste
+    theme: superhero  
+    mainfont: monospace
+    highlight-style: github
+    title-block-banner: true
+    embed-resources: true
+---
+
+**Abstract:**
+
+This is a technical blog post of **both** an HTML file *and* [.qmd file](https://raw.githubusercontent.com/cd-public/D505/refs/heads/master/hws/src/cond.qmd) hosted on GitHub pages.
+
+# 0. Quarto Type-setting
+
+- This document is rendered with Quarto, and configured to embed an images using the `embed-resources` option in the header.
+- If you wish to use a similar header, here's is the format specification for this document:
+
+```email
+format: 
+  html:
+    embed-resources: true
+```
+
+# 1. Setup
+
+**Step Up Code:**
+
+```{r}
+sh <- suppressPackageStartupMessages
+library(tidyverse)
+library(caret)
+library(naivebayes)
+wine <- readRDS(gzcon(url("https://github.com/cd-public/D505/raw/master/dat/pinot.rds")))
+```
+
+# 2. Logistic Concepts
+
+Why do we call it Logistic Regression even though we are using the technique for classification?
+
+> <span style="color:red;font-weight:bold">TODO</span>: It is referred to this because despite being used for classification problems, we still use a logistic function with a linear regression.
+
+# 3. Modeling
+
+We train a logistic regression algorithm to classify a whether a wine comes from Marlborough using:
+
+1. An 80-20 train-test split.
+2. Three features engineered from the description
+3. 5-fold cross validation.
+
+We report Kappa after using the model to predict provinces in the holdout sample.
+
+```{r}
+desc_to_words <- function(df, omits) { 
+  df %>%
+    unnest_tokens(word, description) %>%
+    anti_join(stop_words) %>% # get rid of stop words
+    filter(!(word %in% omits))
+}
+
+words <- desc_to_words(wine, c("wine","pinot","vineyard"))
+# The second argument is our custom stopwards, as a vector
+head(words)
+
+words_to_stems <- function(df) { 
+  df %>%
+    mutate(word = wordStem(word))
+}
+
+stems <- words_to_stems(words)
+head(stems)
+
+filter_by_count <- function(df, j) { 
+  df %>%
+    count(id, word) %>% 
+    group_by(id) %>% mutate(exists = (n>0)) %>% ungroup %>% 
+    group_by(word) %>% 
+    mutate(total = sum(n)) %>% 
+    filter(total > j)
+}
+
+pivoter <- function(words, df) {
+  words %>%
+    pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = list(exists=0)) %>% 
+    right_join(select(df,id,province)) %>% 
+    drop_na() %>% 
+    select(-id)
+}
+
+wine_words <- function(df, j, stem) { 
+
+  words <- desc_to_words(df, c("wine","pinot","vineyard"))
+  
+  if (stem) {
+    words <- words_to_stems(words)
+  }
+  
+  words <- filter_by_count(words, j)
+
+  pivoter(words, df)
+}
+
+
+wino <- wine_words(wine, 1000, F)
+
+wino %>% 
+  head(10) %>% 
+  select(1:5,province)
+
+winor <- wine_words(wine, 1000, T) %>% 
+           mutate(
+             marlborough = as.factor(province == "Marlborough")) %>%
+           select(-province)
+
+set.seed(505)
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+table(train$province)
+
+
+control = trainControl(method = "cv", number = 5)
+get_fit <- function(df) {
+  train(province ~ .,
+        data = df, 
+        trControl = control,
+        method = "multinom",
+        maxit = 5) # speed it up - default 100
+}
+fit <- get_fit(train)
+
+get_odds <- function(fit) {
+  as.data.frame(t(exp(coef(fit$finalModel))))   %>%
+  rownames_to_column(var = "name") %>%
+  pivot_longer(-name, names_to = "class", values_to = "odds") %>%
+  arrange(desc(odds)) %>%
+  head()
+}
+get_odds(fit)
+
+get_matrix <- function(fit, df) {
+  pred <- factor(predict(fit, newdata = df))
+  confusionMatrix(pred,factor(df$province))
+}
+get_matrix(fit,test)
+
+winor <- wine_words(wine, 1000, T) %>% 
+           mutate(Marlborough = as.factor(province == "Marlborough")) %>%
+           select(-province)
+wine_index <- createDataPartition(winor$Marlborough, p = 0.80, list = FALSE)
+train <- winor[wine_index, ]
+test <- winor[-wine_index, ]
+
+fit <- train(Marlborough ~ .,
+             data = train, 
+             trControl = control,
+             method = "glm",
+             family = "binomial")
+
+print(fit)
+```
+> <span style="color:red;font-weight:bold">TODO</span>: Based on the model labelled fit, our kappa is 0.356, which isn't great, but it's not bad.
+
+# 4. Binary vs Other Classification
+
+What is the difference between determining some form of classification through logistic regression versus methods like $K$-NN and Naive Bayes which performed classifications.
+
+> <span style="color:red;font-weight:bold">TODO</span>: In short, logistic regression models are used when it's important to interpret coefficients (the rate at which a predictor affects our model), $K$-NN models are used when you just need a simple model that's easy to implement (though it can take a while for your computer to calculate), and  Naive Bayes is best used when you have a large dataset with categorical features. Logistic regression calculates the probability of a class based on linear features. $K$-NN classifies data based on the class of other data points nearest in training data (hence, "Nearest Neighbors"). Naive Bayes calculates probabilities based on Bayes' theorem and makes predictions based on the assumption of feature independence.
+
+
+# 5. ROC Curves
+
+We can display an ROC for the model to explain your model's quality.
+
+```{r}
+prob <- predict(fit, newdata = test, type = "prob")[,2]
+myRoc <- roc(test$Marlborough, prob)
+plot(myRoc)
+auc(myRoc)
+```
+
+> <span style="color:red;font-weight:bold">TODO</span>: Using the area under the curve, we can see how accurate this model is. The scale is between 0 and 1, 1 signifying 100 percent. The closer to 1 we get, the better the model.

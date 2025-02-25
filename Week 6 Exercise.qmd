@@ -1,0 +1,145 @@
+---
+title: "Week 6 Exercise Pinot"
+author: "Group 8"
+format: html
+---
+
+```{r}
+sh <- suppressPackageStartupMessages
+sh(library(tidyverse))
+sh(library(caret))
+sh(library(tidytext))
+sh(library(SnowballC)) # new?
+sh(library(pROC))      # new?
+sh(library(glmnet))
+data(stop_words)
+sh(library(thematic))
+theme_set(theme_dark())
+thematic_rmd(bg = "#111", fg = "#eee", accent = "#eee")
+
+wine <- readRDS(gzcon(url("https://cd-public.github.io/D505/dat/pinot.rds")))
+names(wine)[names(wine) == 'id'] = 'id'
+```
+
+
+```{r}
+desc_to_words <- function(df, omits) { 
+  df %>%
+    unnest_tokens(word, description) %>%
+    anti_join(stop_words) %>% # get rid of stop words
+    filter(!(word %in% omits))
+}
+
+words <- desc_to_words(wine, c("wine","pinot","vineyard"))
+# The second argument is our custom stopwards, as a vector
+head(words)
+
+words_to_stems <- function(df) { 
+  df %>%
+    mutate(word = wordStem(word))
+}
+
+stems <- words_to_stems(words)
+head(stems)
+
+filter_by_count <- function(df, j) { 
+  df %>%
+    count(id, word) %>% 
+    group_by(id) %>% mutate(exists = (n>0)) %>% ungroup %>% 
+    group_by(word) %>% 
+    mutate(total = sum(n)) %>% 
+    filter(total > j)
+}
+
+pivoter <- function(words, df) {
+  words %>%
+    pivot_wider(id_cols = id, names_from = word, values_from = exists, values_fill = list(exists=0)) %>% 
+    right_join(select(df,id,province)) %>% 
+    drop_na() %>% 
+    select(-id)
+}
+
+wine_words <- function(df, j, stem) { 
+
+  words <- desc_to_words(df, c("wine","pinot","vineyard"))
+  
+  if (stem) {
+    words <- words_to_stems(words)
+  }
+  
+  words <- filter_by_count(words, j)
+
+  pivoter(words, df)
+}
+
+
+wino <- wine_words(wine, 1000, F)
+
+wino %>% 
+  head(10) %>% 
+  select(1:5,province)
+
+```
+
+
+```{r}
+winor <- wine_words(wine, 1000, T) %>% 
+           mutate(
+             oregon = as.factor(province == "Oregon"),
+             casablanca = as.factor(province == "Casablanca_Valley")) %>%
+           select(-province)
+
+wine_index <- createDataPartition(wino$province, p = 0.80, list = FALSE)
+train <- wino[ wine_index, ]
+test <- wino[-wine_index, ]
+table(train$province)
+
+
+control = trainControl(method = "cv", number = 5)
+get_fit <- function(df) {
+  train(province ~ .,
+        data = df, 
+        trControl = control,
+        method = "multinom",
+        maxit = 5) # speed it up - default 100
+}
+fit <- get_fit(train)
+
+get_odds <- function(fit) {
+  as.data.frame(t(exp(coef(fit$finalModel))))   %>%
+  rownames_to_column(var = "name") %>%
+  pivot_longer(-name, names_to = "class", values_to = "odds") %>%
+  arrange(desc(odds)) %>%
+  head()
+}
+get_odds(fit)
+
+get_matrix <- function(fit, df) {
+  pred <- factor(predict(fit, newdata = df))
+  confusionMatrix(pred,factor(df$province))
+}
+get_matrix(fit,test)
+```
+
+
+
+```{r}
+winor <- wine_words(wine, 1000, T) %>% 
+           mutate(casablanca = as.factor(province == "Casablanca_Valley")) %>%
+           select(-province)
+wine_index <- createDataPartition(winor$casablanca, p = 0.80, list = FALSE)
+train <- winor[wine_index, ]
+test <- winor[-wine_index, ]
+
+fit <- train(casablanca ~ .,
+             data = train, 
+             trControl = control,
+             method = "glm",
+             family = "binomial")
+
+prob <- predict(fit, newdata = test, type = "prob")[,2]
+myRoc <- roc(test$casablanca, prob)
+plot(myRoc)
+auc(myRoc)
+```
+
